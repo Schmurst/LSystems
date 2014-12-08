@@ -36,7 +36,6 @@ namespace octet{
     int iterations;                   // number of iterations
 
     dynarray<dynarray<char>> axiomlist; // dynarray which stores previous axioms
-    dynarray<mesh*> meshStack;   // stack of pre - calculated meshes
 
     // drawing variables
     scene_node *node;
@@ -221,6 +220,10 @@ namespace octet{
     }
 
   public:
+
+    /// default constructer
+    L_system() = default;
+
     /// Parser function, used to read all info from txt file
     void loadFile(string name){
       app_utils::get_url(lSystemFile, name);
@@ -281,8 +284,6 @@ namespace octet{
           break;
         }
       }
-
-      meshStack.push_back(_mesh);
     }
 
     /// Get functions below /// ---------------------------------------------------
