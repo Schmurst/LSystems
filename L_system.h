@@ -16,7 +16,7 @@ namespace octet{
   class L_system : public resource{
 
     /// Debug bools
-    enum { LS_DEBUG_PARSER = 0, LS_DEBUG_ITERATE = 0 };
+    enum { LS_DEBUG_PARSER = 0, LS_DEBUG_ITERATE = 1 };
 
     /// vertex structure
     struct myVertex{
@@ -30,16 +30,18 @@ namespace octet{
     octet::string message;            // contains the message
     dynarray<uint8_t> lSystemFile;    // containts the entire file
     dynarray<char> alphabet;          // contains the alphabet
-    dynarray<char> axiom;             // contains the axoim
+    dynarray<char> axiom;             // contains the axiom
+    dynarray<char> startingAxiom;     // axiom from file
     hash_map<char, string> rules;     // contains the rules
     float angle;                      // angle used for rotation
-    int iterations;                   // number of iterations
-
-    dynarray<dynarray<char>> axiomlist; // dynarray which stores previous axioms
+    float chinaTranslation;
+    
+    bool in_view = true;
+    int currentItr = 1;
 
     // drawing variables
-    scene_node *node;
-    mesh *_mesh;
+    ref<scene_node> node;
+    ref<mesh> _mesh;
     myVertex *vtx;
     dynarray<mat4t> placementStack;
     vec3 translateF = vec3(0, 0.2f, 0);
@@ -99,8 +101,27 @@ namespace octet{
       }
       axiom.resize(new_array.size());
       memcpy(axiom.data(), new_array.data(), new_array.size());
+    
+    }
 
-      axiomlist.push_back(axiom);
+    /// This fucntion sets up th mesh to be drawn, taken and edited from Andy's geometry example
+    void initialiseDrawParams() {
+        _mesh->allocate(sizeof(myVertex) * 100000, 0);
+        _mesh->set_params(sizeof(myVertex), 0, 100000, GL_LINES, NULL);
+
+      // describe the structure of my_vertex to OpenGL
+      if (_mesh->get_num_slots() < 2){
+        _mesh->add_attribute(attribute_pos, 3, GL_FLOAT, 0);
+        _mesh->add_attribute(attribute_color, 4, GL_UNSIGNED_BYTE, 12, GL_TRUE);
+      }
+
+      // these write-only locks give access to the vertices and indices
+      gl_resource::wolock vertexLock(_mesh->get_vertices());
+      vtx = (myVertex *)vertexLock.u8();
+
+      // insert some deafult drawing values
+      mat4t matrix;
+      placementStack.push_back(matrix);
     }
 
     /// This function constructs the rules for the Lsyatem from the file
@@ -149,7 +170,7 @@ namespace octet{
 
       for (int i = a; i < b; i++){
         if (lSystemFile[i] != ',')
-          axiom.push_back(lSystemFile[i]);
+          startingAxiom.push_back(lSystemFile[i]);
       }
 
       printf("Here is the Axiom: %.*s\n", axiom.size(), axiom.data());
@@ -184,45 +205,27 @@ namespace octet{
       temp.set((char*)&lSystemFile[a], b - a);
       angle = atof(temp);
       if (LS_DEBUG_PARSER) printf("The Angle is: %g\n", angle);
-
-      // now find the number of iterations
-      a = 0, b = 0;
-      a = check.find("Iterations");
-      a += string("Iterations").size() + 1;
-      b = getPosition(lSystemFile, ';', a);
-      temp.set((char*)&lSystemFile[a], b - a);
-      temp += '\0';
-      iterations = atof(temp);
-      if (LS_DEBUG_PARSER) printf("The number of iterations is: %i\n", iterations);
     }
 
-    /// This fucntion sets up th mesh to be drawn, taken and edited from Andy's geometry example
-    void initialiseDrawParams() {
-      // scene node
-      node = new scene_node();
-
-      // allocate vertices and indices into OpenGL buffers
-      _mesh = new mesh();
-      _mesh->allocate(sizeof(myVertex) * 100000, 0);
-      _mesh->set_params(sizeof(myVertex), 0, 100000, GL_LINES, NULL);
-
-      // describe the structure of my_vertex to OpenGL
-      _mesh->add_attribute(attribute_pos, 3, GL_FLOAT, 0);
-      _mesh->add_attribute(attribute_color, 4, GL_UNSIGNED_BYTE, 12, GL_TRUE);
-
-      // these write-only locks give access to the vertices and indices
-      gl_resource::wolock vertexLock(_mesh->get_vertices());
-      vtx = (myVertex *)vertexLock.u8();
-
-      // insert some deafult drawing values
-      mat4t matrix;
-      placementStack.push_back(matrix);
+    /// reset the axiom to starting axiom
+    void resetAxiom(){
+      axiom.reset();
+      axiom.resize(startingAxiom.size());
+      for (int i = 0; i < startingAxiom.size(); i++){
+        axiom[i] = startingAxiom[i];
+      }
     }
 
   public:
 
     /// default constructer
-    L_system() = default;
+    L_system(){
+      // scene node
+      node = new scene_node();
+      chinaTranslation = 0;
+      // allocate vertices and indices into OpenGL buffers
+      _mesh = new mesh();
+    }
 
     /// Parser function, used to read all info from txt file
     void loadFile(string name){
@@ -244,43 +247,63 @@ namespace octet{
       }
     }
 
-    /// This function loops through the current axiom and adds vertexs to the mesh
-    void calculateVertices(dynarray<char> &_axiom){
+    /// This function hacks the mesh to another position
+    void moveAway(){
+      if (in_view){
+        chinaTranslation = 1000000;
+        calculateVertices();
+        in_view = false;
+      }
+    }
 
+    /// This function hacks the mesh to the camera position
+    void moveBack(){
+      if (!in_view){
+        chinaTranslation = 0;
+        calculateVertices();
+        in_view = true;
+      }
+    }
+
+    /// This function loops through the current axiom and adds vertexs to the mesh
+    void calculateVertices(){
+
+      resetAxiom();
+      iteration(currentItr);
       initialiseDrawParams();
 
       mat4t matrix;
-      for (int i = 0; i < _axiom.size(); i++)
+      for (int i = 0; i < axiom.size(); i++)
       {
-        switch (_axiom[i])
+        switch (axiom[i])
         {
         case 'F':
-          if (LS_DEBUG_ITERATE) printf("Letter recognised as %c\n", _axiom[i]);
-          vtx->pos = placementStack.back()[3].xyz();
+          if (LS_DEBUG_ITERATE) printf("Letter recognised as %c\n", axiom[i]);
+          vtx->pos = vec3(placementStack.back()[3].xyz()[0] + chinaTranslation, placementStack.back()[3].xyz()[1], placementStack.back()[3].xyz()[2]);
           vtx++;
           placementStack.back().translate(translateF);
-          vtx->pos = placementStack.back()[3].xyz();
+          vtx->pos = vec3(placementStack.back()[3].xyz()[0] + chinaTranslation, placementStack.back()[3].xyz()[1], placementStack.back()[3].xyz()[2]);
           vtx++;
           break;
         case '[':
-          if (LS_DEBUG_ITERATE) printf("Letter recognised as %c\n", _axiom[i]);
+          if (LS_DEBUG_ITERATE) printf("Letter recognised as %c\n", axiom[i]);
           matrix = placementStack.back();
           placementStack.push_back(matrix);
           break;
         case ']':
-          if (LS_DEBUG_ITERATE) printf("Letter recognised as %c\n", _axiom[i]);
+          if (LS_DEBUG_ITERATE) printf("Letter recognised as %c\n", axiom[i]);
           placementStack.pop_back();
           break;
         case '+':
-          if (LS_DEBUG_ITERATE) printf("Letter recognised as %c\n", _axiom[i]);
+          if (LS_DEBUG_ITERATE) printf("Letter recognised as %c\n", axiom[i]);
           placementStack.back().rotateZ(angle);
           break;
         case '-':
-          if (LS_DEBUG_ITERATE) printf("Letter recognised as %c\n", _axiom[i]);
+          if (LS_DEBUG_ITERATE) printf("Letter recognised as %c\n", axiom[i]);
           placementStack.back().rotateZ(-angle);
           break;
         default:
-          if (LS_DEBUG_ITERATE) printf("Letter not recognised: %c, therefore doing nothing\n", _axiom[i]);
+          if (LS_DEBUG_ITERATE) printf("Letter not recognised: %c, therefore doing nothing\n", axiom[i]);
           break;
         }
       }
@@ -293,11 +316,6 @@ namespace octet{
       return axiom.size();
     }
 
-    /// returns the number of iterations
-    int getIterations(){
-      return iterations;
-    }
-
     /// returns the scene node
     scene_node* getNode() {
       return node;
@@ -308,12 +326,29 @@ namespace octet{
       return _mesh;
     }
 
-    /// returns axiom if the index is bad then return the most up to date axiom
-    dynarray<char> getAxiom(int index){
-      if (index <= axiomlist.size() && index >= 0){
-        return axiomlist[index];
-      }
-      return axiom;
+    /// get current iteration level
+    int getCurrentIteration(){
+      return currentItr;
+    }
+
+    /// sets current int
+    void setCurrentIteration(int i){
+      currentItr = i;
+    }
+
+    /// increments current iterations
+    void incrementIteration(){
+      currentItr++;
+    }
+
+    /// deccrements current iterations
+    void decrementIteration(){
+      currentItr--;
+    }
+
+    /// checks whether the tree is in view
+    bool is_in_view(){
+      return in_view;
     }
   };
 }
