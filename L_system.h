@@ -16,7 +16,7 @@ namespace octet{
   class L_system : public resource{
 
     /// Debug bools
-    enum { LS_DEBUG_PARSER = 0, LS_DEBUG_ITERATE = 1 };
+    enum { LS_DEBUG_PARSER = 0, LS_DEBUG_ITERATE = 0 };
 
     /// vertex structure
     struct myVertex{
@@ -106,8 +106,16 @@ namespace octet{
 
     /// This fucntion sets up th mesh to be drawn, taken and edited from Andy's geometry example
     void initialiseDrawParams() {
-        _mesh->allocate(sizeof(myVertex) * 100000, 0);
-        _mesh->set_params(sizeof(myVertex), 0, 100000, GL_LINES, NULL);
+
+      int num = 0;
+      for (int i = 0; i < axiom.size(); ++i){
+        if (axiom[i] == 'F') {
+          ++num;
+        }
+      }
+
+        _mesh->allocate(sizeof(myVertex) * num * 2, 0);
+        _mesh->set_params(sizeof(myVertex), 0, num * 2, GL_LINES, NULL);
 
       // describe the structure of my_vertex to OpenGL
       if (_mesh->get_num_slots() < 2){
@@ -343,7 +351,27 @@ namespace octet{
 
     /// deccrements current iterations
     void decrementIteration(){
-      currentItr--;
+      (currentItr != 0) ? --currentItr : currentItr = 0;
+    }
+
+    /// increment angle by 1degree
+    void incrementAngle(){
+      angle += 1.0f;
+    }
+
+    /// decrment angle by 1.0f degrees
+    void decrementAngle() {
+      angle -= 1.0f;
+    }
+
+    /// increment the translation magnitude
+    void incrementTranslation(){
+      translateF[1] += 0.02f;
+    }
+
+    /// increment the translation magnitude
+    void decrementTranslation(){
+      translateF[1] -= 0.02f;
     }
 
     /// checks whether the tree is in view

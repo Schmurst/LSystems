@@ -96,6 +96,7 @@ namespace octet {
         scene_node * testNode = lsystemStack[i]->getNode();
         app_scene->add_child(testNode);
         app_scene->add_mesh_instance(new mesh_instance(testNode, lsystemStack[i]->getMesh(), red));
+        (i != 1) ? lsystemStack[i]->moveAway() : lsystemStack[i]->moveBack();
       }
 
      
@@ -130,6 +131,42 @@ namespace octet {
         for (int i = 0; i < lsystemStack.size(); i++){
           if (lsystemStack[i]->is_in_view() == true){
             lsystemStack[i]->decrementIteration();
+            lsystemStack[i]->calculateVertices();
+          }
+        }
+      }
+
+      if (is_key_down('K')){
+        for (int i = 0; i < lsystemStack.size(); i++){
+          if (lsystemStack[i]->is_in_view() == true){
+            lsystemStack[i]->incrementAngle();
+            lsystemStack[i]->calculateVertices();
+          }
+        }
+      }
+
+      if (is_key_down('L')){
+        for (int i = 0; i < lsystemStack.size(); i++){
+          if (lsystemStack[i]->is_in_view() == true){
+            lsystemStack[i]->decrementAngle();
+            lsystemStack[i]->calculateVertices();
+          }
+        }
+      }
+
+      if (is_key_down('N')){
+        for (int i = 0; i < lsystemStack.size(); i++){
+          if (lsystemStack[i]->is_in_view() == true){
+            lsystemStack[i]->incrementTranslation();
+            lsystemStack[i]->calculateVertices();
+          }
+        }
+      }
+
+      if (is_key_down('M')){
+        for (int i = 0; i < lsystemStack.size(); i++){
+          if (lsystemStack[i]->is_in_view() == true){
+            lsystemStack[i]->decrementTranslation();
             lsystemStack[i]->calculateVertices();
           }
         }
