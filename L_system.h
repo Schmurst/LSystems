@@ -45,6 +45,13 @@ namespace octet{
     uint32_t *idx;
     dynarray<mat4t> placementStack;
     vec3 translateF = vec3(0, 1.0f, 0);
+    float radius = 0.2f;
+    const int VERTSPERFACE = 3;
+
+    // random generation
+    random randNumGen;
+    bool isStochastic = false;
+    float varience = 0.1f;   // maximum percentage variation from original value 
 
     // this function converts three floats into a RGBA 8 bit color, taken from Andy's geometry example
     static uint32_t make_color(float r, float g, float b) {
@@ -189,6 +196,13 @@ namespace octet{
       if (LS_DEBUG_PARSER) printf("The Angle is: %g\n", angle);
     }
 
+    /// this function returns a randomised slighlty altered copy of the original
+    float mutateFloat(float input){
+      float min = input * (1 - varience);
+      float max = input * (1 + varience);
+      return randNumGen.get(min, max);
+    }
+
   public:
 
     /// default constructer
@@ -198,6 +212,7 @@ namespace octet{
       placementStack.push_back(mat4t());
       numVtxs = 0;
       iteration_count = 0;
+      randNumGen.set_seed(0);
     }
 
     /// These functions are to be used with the new framework ----------------------
@@ -206,21 +221,22 @@ namespace octet{
     /// This code has been taken from Andy's geometery example and modified
     void calculate_prism_vertices(mat4t &placement){
 
-      // number of steps in tri-prism
-      size_t num_steps = 3;
-
       vec3 pos0 = placement[3].xyz();
-      placement.translate(translateF);
+      if (isStochastic){
+        vec3 temp = translateF;
+        temp[1] = mutateFloat(temp[1]);
+        placement.translate(temp);
+      }
+      else{
+        placement.translate(translateF);
+      }
       vec3 pos1 = placement[3].xyz();
 
       mat4t rotation = placement.xyz();
 
-      // make the vertices
-      float radius = 0.2f;
-
-      for (size_t i = 0; i < num_steps; ++i) {
-        float r = 0.0f, g = 1.0f * i / num_steps, b = 1.0f;
-        float theta = i * 2.0f * 3.14159265f / num_steps;
+      for (size_t i = 0; i < VERTSPERFACE; ++i) {
+        float r = 0.0f, g = 1.0f * i / VERTSPERFACE, b = 1.0f;
+        float theta = i * 2.0f * 3.14159265f / VERTSPERFACE;
         vtx->pos = pos0 + vec3p(cosf(theta) * radius, 0, sinf(theta) * radius) * rotation;
         vtx->colour = make_color(r, g, b);
         vtx++;
@@ -232,7 +248,7 @@ namespace octet{
  
       // make the triangles
       uint32_t vn = 0;
-      for (size_t i = 0; i != num_steps; ++i) {
+      for (size_t i = 0; i != VERTSPERFACE; ++i) {
         /*
         1---------3
         |       / |
@@ -285,11 +301,25 @@ namespace octet{
           break;
         case '+':
           // rotate around z +ve
-          placementStack.back().rotateZ(angle);
+          if (!isStochastic){
+            placementStack.back().rotateZ(angle);
+          }
+          else{
+            placementStack.back().rotateX(mutateFloat(angle));
+            placementStack.back().rotateY(mutateFloat(angle));
+            placementStack.back().rotateZ(mutateFloat(angle));
+          }
           break;
         case '-':
           // rotate around z -ve
-          placementStack.back().rotateZ(-angle);
+          if (!isStochastic){
+            placementStack.back().rotateZ(-angle);
+          }
+          else{
+            placementStack.back().rotateX(mutateFloat(-angle));
+            placementStack.back().rotateY(mutateFloat(-angle));
+            placementStack.back().rotateZ(mutateFloat(-angle));
+          }
           break;
         default:
           break;
@@ -310,11 +340,10 @@ namespace octet{
 
       _mesh->init();
 
-      int num_steps = 3;
       // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
       // allocate vertices and indices into OpenGL buffers
       size_t num_vertices = num * 6;
-      size_t num_indices = num * 6 * num_steps;
+      size_t num_indices = num * 6 * VERTSPERFACE;
       _mesh->allocate(sizeof(myVertex) * num_vertices, sizeof(uint32_t) * num_indices);
       _mesh->set_params(sizeof(myVertex), num_indices, num_vertices, GL_TRIANGLES, GL_UNSIGNED_INT);
 
@@ -378,6 +407,24 @@ namespace octet{
       interpret_axiom();
     }
 
+    /// increments current iterations
+    void incrementRadius(){
+      radius += 0.05f;
+      placementStack.reset();
+      placementStack.push_back(mat4t());
+      initialiseDrawParams();
+      interpret_axiom();
+    }
+
+    /// increments current iterations
+    void decrementRadius(){
+      radius -= 0.05f;
+      placementStack.reset();
+      placementStack.push_back(mat4t());
+      initialiseDrawParams();
+      interpret_axiom();
+    }
+
     /// deccrements current iterations
     void decrementIteration(){
       int target = (iteration_count != 1) ? iteration_count - 1 : 0;
@@ -422,6 +469,15 @@ namespace octet{
     /// increment the translation magnitude
     void decrementTranslation(){
       translateF[1] -= 0.02f;
+      placementStack.reset();
+      placementStack.push_back(mat4t());
+      initialiseDrawParams();
+      interpret_axiom();
+    }
+
+    /// change the generation to and from stochastic
+    void altStochasticity(){
+      isStochastic = !isStochastic;
       placementStack.reset();
       placementStack.push_back(mat4t());
       initialiseDrawParams();

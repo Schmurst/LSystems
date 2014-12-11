@@ -53,6 +53,7 @@ namespace octet {
     /// this is called once OpenGL is initialized
     void app_init() {
       app_scene =  new visual_scene();
+
       app_scene->create_default_camera_and_lights();
       camera = app_scene->get_camera_instance(0);
       camera->set_far_plane(1000.0f);
@@ -121,6 +122,19 @@ namespace octet {
         tree->decrementTranslation();
       }
 
+      if (is_key_down('U')){
+        tree->incrementRadius();
+      }
+
+      if (is_key_down('I')){
+        tree->decrementRadius();
+      }
+
+      if (is_key_going_down('Z')){
+        tree->altStochasticity();
+      }
+
+      // Camera controls
       if (is_key_down('Q')){
         camera->get_node()->translate(vec3(0, 1.0f, 0));
       }
