@@ -51,7 +51,8 @@ namespace octet{
     // random generation
     random randNumGen;
     bool isStochastic = false;
-    float varience = 0.1f;   // maximum percentage variation from original value 
+    float varience = 0.10f;   // maximum percentage variation from original value 
+    int rand = 0;
 
     // this function converts three floats into a RGBA 8 bit color, taken from Andy's geometry example
     static uint32_t make_color(float r, float g, float b) {
@@ -212,7 +213,7 @@ namespace octet{
       placementStack.push_back(mat4t());
       numVtxs = 0;
       iteration_count = 0;
-      randNumGen.set_seed(0);
+      randNumGen.set_seed(1);
     }
 
     /// These functions are to be used with the new framework ----------------------
@@ -288,7 +289,6 @@ namespace octet{
         case 'F':
           // draw a prism
           calculate_prism_vertices(placementStack.back());
-          
           break;
         case '[':
           // push a matrix onto the stack
