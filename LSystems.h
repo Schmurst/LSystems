@@ -32,6 +32,7 @@ namespace octet {
       FILENAMES.push_back("assets/Lsystems/Tree6.txt");
       FILENAMES.push_back("assets/Lsystems/Tree7.txt");
       FILENAMES.push_back("assets/Lsystems/Tree8.txt");
+      FILENAMES.push_back("assets/Lsystems/Tree9.txt");
     }
 
     void loadNewTree(int index){
@@ -92,7 +93,7 @@ namespace octet {
       node->rotate(1, vec3(0, 1, 0));
       node->transform(vec3(0));
 
-      for (int i = 1; i < 8; ++i){
+      for (int i = 1; i <= 9; ++i){
         if (is_key_going_down((char)(((int)'0') + i))){
           loadNewTree(i - 1);
         }

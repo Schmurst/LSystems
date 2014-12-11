@@ -51,8 +51,10 @@ namespace octet{
     // random generation
     random randNumGen;
     bool isStochastic = false;
-    float varience = 0.10f;   // maximum percentage variation from original value 
+    float varience = 0.05f;   // maximum percentage variation from original value 
     int rand = 0;
+    vec3 brown = vec3(1, 0, 0.2f);
+    vec3 green = vec3(0, 0.8f, 1);
 
     // this function converts three floats into a RGBA 8 bit color, taken from Andy's geometry example
     static uint32_t make_color(float r, float g, float b) {
@@ -220,7 +222,7 @@ namespace octet{
 
     /// this function calculates the vertices of a prism given a matrix from the matrix stack 
     /// This code has been taken from Andy's geometery example and modified
-    void calculate_prism_vertices(mat4t &placement){
+    void calculate_prism_vertices(mat4t &placement, vec3 colour){
 
       vec3 pos0 = placement[3].xyz();
       if (isStochastic){
@@ -236,13 +238,12 @@ namespace octet{
       mat4t rotation = placement.xyz();
 
       for (size_t i = 0; i < VERTSPERFACE; ++i) {
-        float r = 0.0f, g = 1.0f * i / VERTSPERFACE, b = 1.0f;
         float theta = i * 2.0f * 3.14159265f / VERTSPERFACE;
         vtx->pos = pos0 + vec3p(cosf(theta) * radius, 0, sinf(theta) * radius) * rotation;
-        vtx->colour = make_color(r, g, b);
+        vtx->colour = make_color(colour[0], colour[1], colour[2]);
         vtx++;
         vtx->pos = pos1 + vec3p(cosf(theta) * radius, 0, sinf(theta) * radius) * rotation;
-        vtx->colour = make_color(r, g, b);
+        vtx->colour = make_color(colour[0], colour[1], colour[2]);
         vtx++;
       }
 
@@ -275,20 +276,67 @@ namespace octet{
 
     }
 
+    // this function calculates the vertices required for a downwards facing cone ~ a leafish
+    void calculate_cone_vertices(mat4t placement){
+
+      vec3 pos0 = placement[3].xyz();
+      vec3 pos1 = vec3(pos0[0], pos0[1] - 0.5f, pos0[2]);
+
+      for (size_t i = 0; i < VERTSPERFACE; ++i) {
+        float theta = i * 2.0f * 3.14159265f / VERTSPERFACE;
+        vtx->pos = pos0;
+        vtx->colour = make_color(0, 1.0f, 0.5f);
+        vtx++;
+        vtx->pos = pos1 + vec3p(cosf(theta) * radius, 0, sinf(theta) * radius);
+        vtx->colour = make_color(0, 1.0f, 0.5f);
+        vtx++;
+      }
+
+      // make the triangles
+      uint32_t vn = 0;
+      for (size_t i = 0; i != VERTSPERFACE; ++i) {
+        /*
+        1---------3
+        |       / |
+        |    /    |
+        | /       |
+        0---------2
+        */
+
+        idx[0] = vn + 0 + numVtxs;
+        idx[1] = ((vn + 3) % 6) + numVtxs;
+        idx[2] = vn + 1 + numVtxs;
+        idx += 3;
+        // printf("%u,%u,%u :", idx[-3], idx[-2], idx[-1]);
+        idx[0] = vn + 0 + numVtxs;
+        idx[1] = ((vn + 2) % 6) + numVtxs;
+        idx[2] = ((vn + 3) % 6) + numVtxs;
+        idx += 3;
+        // printf(" %u,%u,%u\n", idx[-3], idx[-2], idx[-1]);
+        vn += 2;
+      }
+      // this is number of vertices added
+      numVtxs += 6;
+    }
+
     /// This function interprets the axiom to populate the mesh
     void interpret_axiom(){
 
       numVtxs = 0;
       mat4t matrix;
+      int i = 0;
+      vec3 colour;
       
       // for each char in axiom do x
       for each (char c in axiom)
       {
-        switch (c)
-        {
+        ++i;
+        colour = green * i / axiom.size() + brown * (axiom.size() - i) / axiom.size();
+
+        switch (c){
         case 'F':
           // draw a prism
-          calculate_prism_vertices(placementStack.back());
+          calculate_prism_vertices(placementStack.back(), colour);
           break;
         case '[':
           // push a matrix onto the stack
@@ -297,6 +345,7 @@ namespace octet{
           break;
         case ']':
           // pop a matrix off the stack
+          calculate_cone_vertices(placementStack.back());
           placementStack.pop_back();
           break;
         case '+':
@@ -321,6 +370,50 @@ namespace octet{
             placementStack.back().rotateZ(mutateFloat(-angle));
           }
           break;
+        case '<':
+          // rotate around y -ve
+          if (!isStochastic){
+            placementStack.back().rotateY(angle);
+          }
+          else{
+            placementStack.back().rotateX(mutateFloat(angle));
+            placementStack.back().rotateY(mutateFloat(angle));
+            placementStack.back().rotateZ(mutateFloat(angle));
+          }
+          break;
+        case '>':
+          // rotate around y +ve
+          if (!isStochastic){
+            placementStack.back().rotateY(-angle);
+          }
+          else{
+            placementStack.back().rotateX(mutateFloat(-angle));
+            placementStack.back().rotateY(mutateFloat(-angle));
+            placementStack.back().rotateZ(mutateFloat(-angle));
+          }
+          break;
+        case '^':
+          // rotate around x +ve
+          if (!isStochastic){
+            placementStack.back().rotateX(angle);
+          }
+          else{
+            placementStack.back().rotateX(mutateFloat(-angle));
+            placementStack.back().rotateY(mutateFloat(-angle));
+            placementStack.back().rotateZ(mutateFloat(-angle));
+          }
+          break;
+        case '*':
+          // rotate around x -ve
+          if (!isStochastic){
+            placementStack.back().rotateX(-angle);
+          }
+          else{
+            placementStack.back().rotateX(mutateFloat(-angle));
+            placementStack.back().rotateY(mutateFloat(-angle));
+            placementStack.back().rotateZ(mutateFloat(-angle));
+          }
+          break;
         default:
           break;
         }
@@ -333,7 +426,7 @@ namespace octet{
 
       int num = 0;
       for (int i = 0; i < axiom.size(); ++i){
-        if (axiom[i] == 'F') {
+        if (axiom[i] == 'F' || axiom[i] == ']') {
           ++num;
         }
       }
