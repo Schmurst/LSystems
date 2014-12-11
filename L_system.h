@@ -213,18 +213,18 @@ namespace octet{
       placement.translate(translateF);
       vec3 pos1 = placement[3].xyz();
 
+      mat4t rotation = placement.xyz();
+
       // make the vertices
       float radius = 0.2f;
 
       for (size_t i = 0; i < num_steps; ++i) {
         float r = 0.0f, g = 1.0f * i / num_steps, b = 1.0f;
         float theta = i * 2.0f * 3.14159265f / num_steps;
-        vtx->pos = pos0 + vec3p(cosf(theta) * radius, 0, sinf(theta) * radius);
-        // printf("vtx bot %i: %f, %f, %f  ", i, vtx->pos.x(), vtx->pos.y(), vtx->pos.z());
+        vtx->pos = pos0 + vec3p(cosf(theta) * radius, 0, sinf(theta) * radius) * rotation;
         vtx->colour = make_color(r, g, b);
         vtx++;
-        vtx->pos = pos1 + vec3p(cosf(theta) * radius, 0, sinf(theta) * radius);
-        // printf("vtx top %i: %f, %f, %f\n", i, vtx->pos.x(), vtx->pos.y(), vtx->pos.z());
+        vtx->pos = pos1 + vec3p(cosf(theta) * radius, 0, sinf(theta) * radius) * rotation;
         vtx->colour = make_color(r, g, b);
         vtx++;
       }

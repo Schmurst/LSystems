@@ -145,5 +145,6 @@ namespace octet {
         camera->get_node()->translate(vec3(1.0f, 0, 0));
       }
     }
+
   };
 }
